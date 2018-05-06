@@ -1,0 +1,285 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>24. Changing CPython’s Grammar &#8212; Python Developer&#39;s Guide </title>
+    <link rel="stylesheet" href="../_static/pydoctheme.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="https://media.readthedocs.org/css/badge_only.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../',
+        VERSION:     '',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '',
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
+      };
+    </script>
+    <script type="text/javascript" src="https://media.readthedocs.org/javascript/jquery/jquery-2.0.3.min.js"></script>
+    <script type="text/javascript" src="https://media.readthedocs.org/javascript/jquery/jquery-migrate-1.2.1.min.js"></script>
+    <script type="text/javascript" src="https://media.readthedocs.org/javascript/underscore.js"></script>
+    <script type="text/javascript" src="https://media.readthedocs.org/javascript/doctools.js"></script>
+    <script type="text/javascript" src="https://media.readthedocs.org/javascript/readthedocs-doc-embed.js"></script>
+    <script type="text/javascript" src="../_static/sidebar.js"></script>
+    <link rel="index" title="Index" href="../genindex/" />
+    <link rel="search" title="Search" href="../search/" />
+    <link rel="next" title="25. Design of CPython’s Compiler" href="../compiler/" />
+    <link rel="prev" title="23. Exploring CPython’s Internals" href="../exploring/" />
+    <link rel="shortcut icon" type="image/png" href="../_static/py.png" />
+    
+    <script type="text/javascript" src="../_static/copybutton.js"></script>
+    
+     
+
+  
+<!-- RTD Extra Head -->
+
+<!-- 
+Always link to the latest version, as canonical.
+http://docs.readthedocs.org/en/latest/canonical.html
+-->
+<link rel="canonical" href="http://devguide.python.org/grammar/" />
+
+<link rel="stylesheet" href="https://media.readthedocs.org/css/readthedocs-doc-embed.css" type="text/css" />
+
+<script type="text/javascript" src="../_static/readthedocs-data.js"></script>
+
+<!-- Add page-specific data, which must exist in the page js, not global -->
+<script type="text/javascript">
+READTHEDOCS_DATA['page'] = 'grammar'
+READTHEDOCS_DATA['source_suffix'] = '.rst'
+</script>
+
+<script type="text/javascript" src="https://media.readthedocs.org/javascript/readthedocs-analytics.js"></script>
+
+<!-- end RTD <extrahead> -->
+</head>
+  <body>  
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../compiler/" title="25. Design of CPython’s Compiler"
+             accesskey="N">next</a> |</li>
+        <li class="right" >
+          <a href="../exploring/" title="23. Exploring CPython’s Internals"
+             accesskey="P">previous</a> |</li>
+    <li><img src="../_static/py.png" alt=""
+             style="vertical-align: middle; margin-top: -1px"/></li>
+    <li><a href="https://www.python.org/">Python</a> &#187;</li>
+    
+    <a href="../">Python Developer's Guide </a> &#187;
+    
+
+    <li class="right">
+        
+
+    <div class="inline-search" style="display: none" role="search">
+        <form class="inline-search" action="../search/" method="get">
+          <input placeholder="Quick search" type="text" name="q" />
+          <input type="submit" value="Go" />
+          <input type="hidden" name="check_keywords" value="yes" />
+          <input type="hidden" name="area" value="default" />
+        </form>
+    </div>
+    <script type="text/javascript">$('.inline-search').show(0);</script>
+         |
+    </li>
+
+      </ul>
+    </div>    
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="changing-cpython-s-grammar">
+<span id="grammar"></span><h1>24. Changing CPython’s Grammar<a class="headerlink" href="#changing-cpython-s-grammar" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="abstract">
+<h2>24.1. Abstract<a class="headerlink" href="#abstract" title="Permalink to this headline">¶</a></h2>
+<p>There’s more to changing Python’s grammar than editing
+Grammar/Grammar and Python/compile.c.  This document aims to be a
+checklist of places that must also be fixed.</p>
+<p>It is probably incomplete.  If you see omissions,  submit a bug or patch.</p>
+<p>This document is not intended to be an instruction manual on Python
+grammar hacking, for several reasons.</p>
+</div>
+<div class="section" id="rationale">
+<h2>24.2. Rationale<a class="headerlink" href="#rationale" title="Permalink to this headline">¶</a></h2>
+<p>People are getting this wrong all the time; it took well over a
+year before someone <a class="reference external" href="https://bugs.python.org/issue676521">noticed</a>
+that adding the floor division
+operator (//) broke the parser module.</p>
+</div>
+<div class="section" id="checklist">
+<h2>24.3. Checklist<a class="headerlink" href="#checklist" title="Permalink to this headline">¶</a></h2>
+<ul class="simple">
+<li>Grammar/Grammar: OK, you’d probably worked this one out :)</li>
+<li>Parser/Python.asdl may need changes to match the Grammar.  Then run ‘make
+regen-ast’ to regenerate Include/Python-ast.h and Python/Python-ast.c.</li>
+<li>Python/ast.c will need changes to create the AST objects involved with the
+Grammar change.</li>
+<li>Parser/pgen needs to be rerun to regenerate Include/graminit.h and
+Python/graminit.c. (‘make regen-grammar’ should handle this for you.)</li>
+<li>Python/symtable.c: This handles the symbol collection pass
+that happens immediately before the compilation pass.</li>
+<li>Python/compile.c: You will need to create or modify the
+compiler_* functions to generate opcodes for your productions.</li>
+<li>You may need to regenerate Lib/symbol.py and/or Lib/token.py
+and/or Lib/keyword.py.</li>
+<li>The parser module.  Add some of your new syntax to test_parser,
+bang on Modules/parsermodule.c until it passes.</li>
+<li>Add some usage of your new syntax to test_grammar.py</li>
+<li>If you’ve gone so far as to change the token structure of
+Python, then the Lib/tokenizer.py library module will need to be changed.</li>
+<li>Certain changes may require tweaks to the library module pyclbr.</li>
+<li>Lib/lib2to3/Grammar.txt may need changes to match the Grammar.</li>
+<li>Documentation must be written!</li>
+<li>After everything has been checked in, you’re likely to see a new
+change to Python/Python-ast.c.  This is because this
+(generated) file contains the git version of the source from
+which it was generated.  There’s no way to avoid this; you just
+have to submit this file separately.</li>
+</ul>
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="../">Table Of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">24. Changing CPython’s Grammar</a><ul>
+<li><a class="reference internal" href="#abstract">24.1. Abstract</a></li>
+<li><a class="reference internal" href="#rationale">24.2. Rationale</a></li>
+<li><a class="reference internal" href="#checklist">24.3. Checklist</a></li>
+</ul>
+</li>
+</ul>
+
+<h3><a href="../">Sections</a></h3>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="../setup/">1. Getting Started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../help/">2. Where to Get Help</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../pullrequest/">3. Lifecycle of a Pull Request</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../runtests/">4. Running &amp; Writing Tests</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../coverage/">5. Increase Test Coverage</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../docquality/">6. Helping with Documentation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../documenting/">7. Documenting Python</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../silencewarnings/">8. Silence Warnings From the Test Suite</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../fixingissues/">9. Fixing “easy” Issues (and Beyond)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../tracker/">10. Issue Tracking</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../triaging/">11. Triaging an Issue</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../communication/">12. Following Python’s Development</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../porting/">13. Porting Python to a new platform</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../coredev/">14. How to Become a Core Developer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../developers/">15. Developer Log</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../committing/">16. Accepting Pull Requests</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../devcycle/">17. Development Cycle</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../buildbots/">18. Continuous Integration</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../stdlibchanges/">19. Adding to the Stdlib</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../langchanges/">20. Changing the Python Language</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../experts/">21. Experts Index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gdb/">22. gdb Support</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../exploring/">23. Exploring CPython’s Internals</a></li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">24. Changing CPython’s Grammar</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#abstract">24.1. Abstract</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#rationale">24.2. Rationale</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#checklist">24.3. Checklist</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../compiler/">25. Design of CPython’s Compiler</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../coverity/">26. Coverity Scan</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../clang/">27. Dynamic Analysis with Clang</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../buildworker/">28. Running a buildbot worker</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../motivations/">29. Core Developer Motivations and Affiliations</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../gitbootcamp/">30. Git Bootcamp and Cheat Sheet</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../appendix/">31. Appendix: Topics</a></li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="../exploring/"
+                        title="previous chapter">23. Exploring CPython’s Internals</a></p>
+  <h4>Next topic</h4>
+  <p class="topless"><a href="../compiler/"
+                        title="next chapter">25. Design of CPython’s Compiler</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li>
+        <a href="https://github.com/python/devguide/blob/master/grammar.rst"
+            rel="nofollow">Show Source
+        </a>
+      </li>
+    </ul>
+  </div>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>  
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../genindex/" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../compiler/" title="25. Design of CPython’s Compiler"
+             >next</a> |</li>
+        <li class="right" >
+          <a href="../exploring/" title="23. Exploring CPython’s Internals"
+             >previous</a> |</li>
+    <li><img src="../_static/py.png" alt=""
+             style="vertical-align: middle; margin-top: -1px"/></li>
+    <li><a href="https://www.python.org/">Python</a> &#187;</li>
+    
+    <a href="../">Python Developer's Guide </a> &#187;
+    
+
+    <li class="right">
+        
+
+    <div class="inline-search" style="display: none" role="search">
+        <form class="inline-search" action="../search/" method="get">
+          <input placeholder="Quick search" type="text" name="q" />
+          <input type="submit" value="Go" />
+          <input type="hidden" name="check_keywords" value="yes" />
+          <input type="hidden" name="area" value="default" />
+        </form>
+    </div>
+    <script type="text/javascript">$('.inline-search').show(0);</script>
+         |
+    </li>
+
+      </ul>
+    </div>  
+    <div class="footer">
+    &copy; <a href="../copyright/">Copyright</a> 2011-2018, Python Software Foundation.
+    <br />
+
+    The Python Software Foundation is a non-profit corporation.
+<a href="https://www.python.org/psf/donations/">Please donate.</a>
+<br />
+    <br />
+
+    Last updated on Apr 20, 2018.
+    <a href="https://github.com/python/devguide/issues/new">Found a bug</a>?
+    <br />
+
+    Created using <a href="http://sphinx.pocoo.org/">Sphinx</a> 1.6.5.
+    </div>
+
+  </body>
+</html>
